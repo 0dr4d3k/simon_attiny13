@@ -294,14 +294,7 @@ int main(void) {
                   play(correct, 20000);
                 }
                 _delay_loop_2((uint16_t)0xFFFF);
-                //                FLAGS |= (1 << FLAG0);
-                //                gameloss = true;
                 gameOver();
-                if (lvl > maxLvl) {
-                  saveLevel();
-                  bestScore();
-                }
-                resetNow();
               }
               else {                                 // you win!
                 time = 0;
@@ -316,15 +309,12 @@ int main(void) {
         if (time > 64) {                             // timeout, you loss!
           //          FLAGS |= (1 << FLAG0);
           gameOver();
-          resetNow();
         }
       }
     }
 
     _delay_loop_2((uint16_t)0xFFFF);
-    levelUp();
-
-    saveLevel();
+    ledWin();
 
     if (lvl < pericia) {
       lvl++;
@@ -337,22 +327,30 @@ int main(void) {
   }
 }
 
-
-
 void gameOver() {
+  ledLoss();
+  if (lvl > maxLvl) {
+    saveLevel();
+    ledScore();
+  }
+  resetNow();
+}
+
+
+void ledLoss() {
   // game over chase
   for (uint8_t i = 0; i < 4; i++) play(3 - i, 25000);
 }
 
-void levelUp()
+void ledWin()
 {
   for (uint8_t i = 0; i < 4; i++) play(i, 25000);
 }
 
-void bestScore() {
+void ledScore() {
   // play best score melody
   for (uint8_t i = 0; i < 3; i++)
-    levelUp();
+    ledWin();
 }
 
 void saveLevel() {
