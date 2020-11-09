@@ -1,10 +1,11 @@
-#test
+#Simon Say Game in ATTiny13 MCU
 
-vimeo video:
-https://vimeo.com/user126744728/review/477245412/cc723d0bcc
-https://vimeo.com/477245412
+##Modify the hardware:
+<p align="center">
+  <img src="assets/hardware_hack.jpg" width="350" title="Tiny13 Simon Hardware Modification">
+</p>
 
-![Tiny13 Simon Hardware Modification](assets/hardware_hack.jpg)
+## Video
+[![Watch the video](https://player.vimeo.com/video/477245412)](https://player.vimeo.com/video/477245412)
 
 
-<iframe src="https://player.vimeo.com/video/477245412" width="640" height="360" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
