@@ -28,9 +28,13 @@
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
 
-#define pericia 4
+#define pericia 32
 #define combo 255
 
+#define SET(x,y) x |= (1 << y)
+#define CLEAR(x,y) x &= ~(1<< y)
+#define READ(x,y) ((0u == (x & (1<<y)))?0u:1u)
+#define TOGGLE(x,y) (x ^= (1<<y))
 
 const uint8_t buttons[4] = {
   0b00010001, 0b00010010, 0b00010100, 0b00011000
@@ -39,19 +43,24 @@ const uint8_t buttons[4] = {
 const uint8_t tones[4] = {
   239 / 2, 179 / 2, 143 / 2, 119 / 2
 };
-uint8_t lastKey;
-uint8_t lvl = 0;
+uint8_t lastK;
+//uint8_t presK;
+uint8_t lvl = 0;  // oJo, mirar el reseteo
+uint8_t cnt;
 uint8_t maxLvl;
 uint16_t ctx;
 uint8_t seed;
 volatile uint8_t time;
+bool p2p = false;
+
 
 #define DUMMY0 _SFR_IO8(0x2E) //#define DWDR _SFR_IO8(0x2E)
 
 // bit accessible
 //#define FLAGS _SFR_IO8(0x1D) //#define EEDR _SFR_IO8(0x1D)
-#define FLAGS EEDR //#define EEDR _SFR_IO8(0x1D)
-#define FLAG0 0
+#define FLAGS EEDR // #define EEDR _SFR_IO8(0x1D)
+//#define FLAGS DWDR
+#define FLAG0 0    // P2P, Player to Player flag
 #define FLAG1 1
 #define FLAG2 2
 #define FLAG3 3
@@ -59,8 +68,6 @@ volatile uint8_t time;
 #define FLAG5 5
 #define FLAG6 6
 #define FLAG7 7
-
-
 
 
 /*
@@ -86,60 +93,6 @@ void play(uint8_t i, uint16_t t = 45000) {
   PORTB = 0b00001111;
 }
 
-/*
-  #define lUp 0x10
-  #define lDn 0x20
-  #define lOk 0x30
-
-  void leds(uint8_t ci)
-  {
-  uint8_t op1 = (ci & 0xF0);
-  uint8_t op2 = (ci & 0x0F);
-
-  //  for (uint8_t ii = (ci & 0x0F); ii == 0; ii--)
-  {
-    switch (op1) {
-      case lUp:
-        for (uint8_t i = op2; i == 0; i--)
-        {
-          for (uint8_t i = 0; i < 4; i++) {
-            play(i, 25000);
-          }
-        }
-        break;
-      case lDn:
-        for (uint8_t i = 0; i < 4; i++) {
-          play(3 - i, 25000);
-        }
-        break;
-      case lOk:
-        for (uint8_t j = 0; j < 3; j++) {
-          _delay_loop_2((uint16_t)10000);
-          play(op2, 20000);
-        }
-        break;
-    }
-  }
-  }
-*/
-/*
-  void gameOver()
-  {
-  for (uint8_t i = 0; i < 4; i++)
-    play(3 - i, 25000);
-
-  if (lvl > maxLvl)
-  {
-    eeprom_write_byte((uint8_t*) 0, ~lvl); // write best score
-    eeprom_write_byte((uint8_t*) 1, (seed)); // write seed
-    for (uint8_t i = 0; i < 3; i++) { // play best score melody
-      levelUp();
-    }
-  }
-  sleepNow();
-  }
-*/
-
 
 uint8_t simple_random4() {
   // use Linear-feedback shift register instead of Linear congruential generator
@@ -154,9 +107,50 @@ uint8_t simple_random4() {
 }
 
 
+uint8_t s[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // 32 levels
+uint8_t p2p_sequence2(uint8_t i_key) {
+  //  uint8_t p_byte = (cnt >> 2);
+  //  uint8_t p_key  = (cnt % 4) << 1;
+  uint8_t p_byte = (cnt / 4);
+  uint8_t p_key  = (cnt % 4) * 2;
+  uint8_t d_key, o_key;
+
+  if (cnt == lvl) {  // save key
+    d_key = (i_key & 0b00000011) << p_key;
+    s[p_byte] |= d_key;
+    return i_key;
+  }
+  else if (cnt < lvl) {  //get key
+    d_key = s[p_byte];
+    o_key = d_key >> p_key;
+    return o_key & 0b00000011;
+
+    //    s_key = s[s_byte];
+    //    s_key >> (cnt % 4);
+    //    return led_s & 0b00000011;
+  }
+  else {
+  }
+};
+
+
+uint8_t p2p_sequence() {
+  uint8_t led_s = s[cnt >> 2];
+  led_s >>= (cnt % 4);
+  return led_s & 0b00000011;
+};
+
+
+void p2p_up(uint8_t key) {
+  key <<= (cnt % 4);
+  s[cnt >> 2] = key;
+}
+
+
 ISR(TIM0_OVF_vect) {
   PORTB ^= 1 << PB4;
 }
+
 
 ISR(WDT_vect) {
   time++; // increase each 64 ms
@@ -169,9 +163,10 @@ ISR(WDT_vect) {
 }
 
 
-//void resetCtx() {
-//  ctx = (uint16_t)seed;
-//}
+void resetCtx() {
+  // Seed expansion 0 padding
+  ctx = (uint16_t)seed;
+}
 
 //void(* resetFunc) (void) = 0;//declare reset function at address 0
 
@@ -202,6 +197,7 @@ static inline void wdt_disable1 (void)
   );
 }
 
+
 static inline void wdt_disable2 (void)
 {
   wdt_reset();
@@ -214,9 +210,28 @@ static inline void wdt_disable2 (void)
   );
 }
 
+/*
+  uint8_t eeprom_read_byte2 (const uint8_t *p)
+  {
+  uint8_t t = FLAGS;
+  uint8_t b = eeprom_read_byte ((uint8_t *)p);
+  FLAGS = t;
+  return b;
+  }
+
+  void eeprom_write_byte2 (uint8_t *p, uint8_t value)
+  {
+  uint8_t t = FLAGS;
+  eeprom_write_byte ((uint8_t *)p, value);
+  FLAGS = t;
+  }
+*/
 
 
 int main(void) {
+  //lvl = 0x00;
+  //cnt = 0x00;
+
   // watchdog reset
   MCUSR &= ~(1 << WDRF);
   wdt_disable2(); // wdt_disable() optimization
@@ -252,8 +267,13 @@ int main(void) {
       eeprom_write_byte((uint8_t*) 0, 255);
       maxLvl = 0;
       break;
-    case 0b00001011:                                  // blue button - infinite loop
-      lvl = combo;
+    case 0b00001011:                                  // blue button - p2p game
+      p2p = true;
+
+      //      FLAGS |= (1 << FLAG0);
+      //      SET(FLAGS, FLAG0);
+
+      //      lvl = combo;
       break;
     case 0b00001101:                                  // green button - extra coin
       lvl = maxLvl;
@@ -265,65 +285,109 @@ int main(void) {
   // wait to button release
   while ((PINB & 0b00001111) != 0b00001111) {};
 
-  while (1) { // main loop
-    ctx = seed;
+  // p2p led animation
+  if (p2p) {
+    _delay_loop_2((uint16_t)45000);
+    //    resetCtx();
+    //    uint8_t led_init = simple_random4();
+    //    p2p_up(led_init);
+    //    play(led_init);
+    ledWin();
+    ledLoss();
+  }
+  //  if (READ(FLAGS,FLAG0) == 1u) {ledWin(); ledLoss();}
 
-    for (uint8_t cnt = 0; cnt <= lvl; cnt++) {      // play new sequence
-      // never ends if lvl == 255
-      _delay_loop_2(4400 + 489088 / (8 + lvl));
-      play(simple_random4());
-    }
-
-    time = 0;
-    lastKey = 5;
-    ctx = seed;
-
-    for (uint8_t cnt = 0; cnt <= lvl; cnt++)         // player sequence
+  while (1)                                     {   // main loop
+    uint8_t presK;
+    resetCtx();
+    if (!p2p)
     {
+      //    if (!READ(FLAGS,FLAG0))
+      for (cnt = 0; cnt <= lvl; cnt++)  {   // play new sequence
+        // never ends if lvl == 255
+        _delay_loop_2((uint16_t)45000);
+        //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
+          play(simple_random4());
+      }
+    }
+    
+    time = 0;
+    lastK = 5;
+    resetCtx();
+
+    for (cnt = 0; cnt <= lvl; cnt++)             {   // player sequence
       bool next = false;
-      while (!next) {                                // player iteraction
-        for (uint8_t i = 0; i < 4; i++) {            // polling buttons
-          if (!(PINB & buttons[i] & 0b00001111)) {
-            if (time > 1 || i != lastKey) {          // key validation
-              play(i);
+      while (!next)                              {   // player iteraction
+        for (presK = 0; presK < 4; presK++)      {   // polling buttons
+          if (!(PINB & buttons[presK] & 0x0F))   {
+            if (time > 1 || presK != lastK)      {   // key validation
+              play(presK);
               next = true;
-              uint8_t correct = simple_random4();
-              if (i != correct) {                    // you loss!
-                for (uint8_t i = 0; i < 3; i++) {
+              uint8_t correct;
+              if (p2p)
+                correct = p2p_sequence2(presK);
+              else
+                correct = simple_random4();
+
+              if (presK != correct)              {   // you loss!
+                for (uint8_t i = 0; i < 3; i++)  {
                   _delay_loop_2(10000);
                   play(correct, 20000);
                 }
                 _delay_loop_2((uint16_t)0xFFFF);
                 gameOver();
               }
-              else {                                 // you win!
+              else                               {   // you win!
                 time = 0;
-                lastKey = i;
+                lastK = presK;
                 break;
               }
             }
             time = 0;
           }
         }
-
-        if (time > 64) {                             // timeout, you loss!
+        if (time > 64)                           {   // timeout, you loss!
           //          FLAGS |= (1 << FLAG0);
           gameOver();
         }
       }
     }
 
+
+
     _delay_loop_2((uint16_t)0xFFFF);
     ledWin();
 
+
+    
+
     if (lvl < pericia) {
       lvl++;
+      //      p2p_up(presK);
       _delay_loop_2((uint16_t)45000);
     }
     else
-    {
       lvl = combo;
+
+
+/*
+    resetCtx();
+    //    if (!p2p)
+    
+    {
+      //    if (!READ(FLAGS,FLAG0))
+//      for (cnt = 0; cnt <= lvl; cnt++)  {   // play new sequence
+      for (cnt = 0; cnt < lvl; cnt++)  {   // play new sequence
+        // never ends if lvl == 255
+        _delay_loop_2((uint16_t)45000);
+        //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
+        if (!p2p)
+          play(simple_random4());
+        else
+          play(p2p_sequence2(0));
+      }
     }
+  */   
   }
 }
 
