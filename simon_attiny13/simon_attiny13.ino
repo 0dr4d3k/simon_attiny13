@@ -26,9 +26,11 @@
 #include <avr/sleep.h>
 #include <util/delay_basic.h>
 #include <avr/eeprom.h>
+#include <avr/wdt.h>
 
 #define pericia 4
 #define combo 255
+
 
 const uint8_t buttons[4] = {
   0b00010001, 0b00010010, 0b00010100, 0b00011000
@@ -44,14 +46,33 @@ uint16_t ctx;
 uint8_t seed;
 volatile uint8_t time;
 
-void sleepNow() {
+#define DUMMY0 _SFR_IO8(0x2E) //#define DWDR _SFR_IO8(0x2E)
+
+// bit accessible
+//#define FLAGS _SFR_IO8(0x1D) //#define EEDR _SFR_IO8(0x1D)
+#define FLAGS EEDR //#define EEDR _SFR_IO8(0x1D)
+#define FLAG0 0
+#define FLAG1 1
+#define FLAG2 2
+#define FLAG3 3
+#define FLAG4 4
+#define FLAG5 5
+#define FLAG6 6
+#define FLAG7 7
+
+
+
+
+/*
+  void sleepNow() {
   PORTB = 0b00000000; // disable all pull-up resistors
   cli(); // disable all interrupts
   WDTCR = 0; // turn off the Watchdog timer
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   sleep_enable();
   sleep_cpu();
-}
+  }
+*/
 
 void play(uint8_t i, uint16_t t = 45000) {
   PORTB = 0b00000000;  // set all button pins low or disable pull-up resistors
@@ -65,12 +86,13 @@ void play(uint8_t i, uint16_t t = 45000) {
   PORTB = 0b00001111;
 }
 
-#define lUp 0x10
-#define lDn 0x20
-#define lOk 0x30
+/*
+  #define lUp 0x10
+  #define lDn 0x20
+  #define lOk 0x30
 
-void leds(uint8_t ci)
-{
+  void leds(uint8_t ci)
+  {
   uint8_t op1 = (ci & 0xF0);
   uint8_t op2 = (ci & 0x0F);
 
@@ -98,50 +120,39 @@ void leds(uint8_t ci)
         break;
     }
   }
-}
-/*
-  void gameOver() {
-  for (uint8_t i = 0; i < 4; i++) {
-    play(3 - i, 25000);
   }
-  if (lvl > maxLvl) {
+*/
+/*
+  void gameOver()
+  {
+  for (uint8_t i = 0; i < 4; i++)
+    play(3 - i, 25000);
+
+  if (lvl > maxLvl)
+  {
     eeprom_write_byte((uint8_t*) 0, ~lvl); // write best score
     eeprom_write_byte((uint8_t*) 1, (seed)); // write seed
     for (uint8_t i = 0; i < 3; i++) { // play best score melody
       levelUp();
     }
   }
-  //  sleepNow();
-  }
-
-  void levelUp() {
-  for (uint8_t i = 0; i < 4; i++) {
-    play(i, 25000);
-  }
+  sleepNow();
   }
 */
 
+
 uint8_t simple_random4() {
-  /*
-    // https://en.wikipedia.org/wiki/Linear_congruential_generator
-    // ctx = ctx * 1103515245 + 12345; // too big for ATtiny13
-    ctx = 2053 * ctx + 13849;
-    uint8_t temp = ctx ^ (ctx >> 8); // XOR two bytes
-    temp ^= (temp >> 4); // XOR two nibbles
-    return (temp ^ (temp >> 2)) & 0b00000011; // XOR two pairs of bits and return remainder after division by 4
-  */
   // use Linear-feedback shift register instead of Linear congruential generator
   // https://en.wikipedia.org/wiki/Linear_feedback_shift_register
-  for (uint8_t i = 0; i < 2; i++) { // we need two random bits
-    uint8_t lsb = ctx & 1; // Get LSB (i.e., the output bit)
-    ctx >>= 1; // Shift register
-    if (lsb || !ctx) { // output bit is 1 or ctx = 0
-      ctx ^= 0xB400; // apply toggle mask
-    }
+  for (uint8_t i = 0; i < 2; i++)
+  {
+    uint8_t lsb = ctx & 1;
+    ctx >>= 1;
+    if (lsb || !ctx) ctx ^= 0b1011010000000000;
   }
-  return ctx & 0b00000011; // remainder after division by 4
-
+  return ctx & 0b00000011;
 }
+
 
 ISR(TIM0_OVF_vect) {
   PORTB ^= 1 << PB4;
@@ -157,26 +168,74 @@ ISR(WDT_vect) {
   }
 }
 
-void resetCtx() {
-  ctx = (uint16_t)seed;
-}
+
+//void resetCtx() {
+//  ctx = (uint16_t)seed;
+//}
 
 //void(* resetFunc) (void) = 0;//declare reset function at address 0
 
+
+void resetNow() {
+  cli();
+  WDTCR =  (1 << WDCE);
+  WDTCR = (1 << WDE) | (1 << WDP2) | (1 << WDP1) | (1 << WDP0);
+
+  //  wdt_enable( WDTO_2S );
+  while (1);
+}
+
+
+static inline void wdt_disable1 (void)
+{
+  uint8_t register temp_reg;
+  asm volatile (
+    "wdr"                        "\n\t"
+    "in  %[TEMPREG],%[WDTREG]"   "\n\t"
+    "ori %[TEMPREG],%[WDCE_WDE]" "\n\t"
+    "out %[WDTREG],%[TEMPREG]"   "\n\t"
+    "out %[WDTREG],__zero_reg__" "\n\t"
+    : [TEMPREG] "=d" (temp_reg)
+    : [WDTREG]  "I"  (_SFR_IO_ADDR(WDTCR)),
+    [WDCE_WDE]  "n"  ((uint8_t)(_BV(WDCE) | _BV(WDE)))
+    : "r0"
+  );
+}
+
+static inline void wdt_disable2 (void)
+{
+  wdt_reset();
+  WDTCR = (1 << WDCE) | (1 << WDE);
+  asm volatile (
+    "out %[WDTREG],__zero_reg__" "\n\t"
+    :
+    : [WDTREG]  "I"  (_SFR_IO_ADDR(WDTCR))
+    :
+  );
+}
+
+
+
 int main(void) {
+  // watchdog reset
+  MCUSR &= ~(1 << WDRF);
+  wdt_disable2(); // wdt_disable() optimization
+
   // ports
   PORTB = 0b00001111; // enable pull-up resistors on 4 game buttons
 
+  // flags
+  FLAGS = 0b00000000;
+
   TCCR0B = (1 << CS00); // Timer0 in normal mode (no prescaler)
 
-  // start T0 to get aleatory seed in the first push button
+  // t0(seed generator and notes) and watchdog (basetime)
   WDTCR =   (1 << WDTIE) | (1 << WDP1); // start watchdog timer with 64ms prescaller (interrupt mode)
-  TIMSK0 |= 1 << TOIE0; // enable timer overflow interrupt
+  TIMSK0 = 1 << TOIE0; // enable timer overflow interrupt
 
   sei(); // global interrupt enable
   // repeat for fist 8 WDT interrupts to shuffle the seed
   _delay_loop_2((uint16_t)0xFFFF);
-
 
   // set Timer0 in PWM Pase Correct: WGM02:00 = 0b101
   //                   prescaler /8: CS02:00  = 0b010
@@ -187,20 +246,18 @@ int main(void) {
   // read best score and seed from eeprom
   maxLvl  = ~eeprom_read_byte((uint8_t*) 0);
 
-  // initialization sequence
+  // secret codes
   switch (PINB & 0b00001111) {
-    //  switch (PINB) {
-
-    case 0b00000111: // yellow button
-      eeprom_write_byte((uint8_t*) 0, 255); // reset best score
+    case 0b00000111:                                  // yellow button - reset score
+      eeprom_write_byte((uint8_t*) 0, 255);
       maxLvl = 0;
       break;
-    case 0b00001011: // blue button
-      lvl = 255; // play random tones in an infinite loop
+    case 0b00001011:                                  // blue button - infinite loop
+      lvl = combo;
       break;
-    case 0b00001101: // green button
-      lvl = maxLvl; // start from max level and load seed from eeprom (no break here)
-    case 0b00001110: // red button
+    case 0b00001101:                                  // green button - extra coin
+      lvl = maxLvl;
+    case 0b00001110:                                  // red button - repeat
       seed = (((uint8_t) eeprom_read_byte((uint8_t*) 1)));
       break;
   }
@@ -209,71 +266,101 @@ int main(void) {
   while ((PINB & 0b00001111) != 0b00001111) {};
 
   while (1) { // main loop
-    //    for (;;) {
-    resetCtx();
-    for (uint8_t cnt = 0; cnt <= lvl; cnt++) { // never ends if lvl == 255
+    ctx = seed;
+
+    for (uint8_t cnt = 0; cnt <= lvl; cnt++) {      // play new sequence
+      // never ends if lvl == 255
       _delay_loop_2(4400 + 489088 / (8 + lvl));
       play(simple_random4());
     }
+
     time = 0;
     lastKey = 5;
-    resetCtx();
-    for (uint8_t cnt = 0; cnt <= lvl; cnt++) {
-      bool pressed = false;
-      while (!pressed) {
-        for (uint8_t i = 0; i < 4; i++) {
-          if (!(PINB & buttons[i] & 0b00001111)) {
-            //         if (!(PINB & buttons[i])) {
-            if (time > 1 || i != lastKey) {
-              play(i);
-              pressed = true;
-              uint8_t correct = simple_random4();
-              if (i != correct) {
-                leds(lOk | correct);
-                _delay_loop_2((uint16_t)0xFFFF);
-                //                gameOver();
-                //                leds((uint8_t)lDn|0x01);
-                leds(lDn | 1);
-                if (lvl > maxLvl) {
-                  eeprom_write_byte((uint8_t*) 0, ~lvl); // write best score
-                  eeprom_write_byte((uint8_t*) 1, (seed)); // write seed
-                  //                  leds((int8_t)lUp|0x03);
-                  leds(lUp | 7);
-                }
-                sleepNow();
+    ctx = seed;
 
+    for (uint8_t cnt = 0; cnt <= lvl; cnt++)         // player sequence
+    {
+      bool next = false;
+      while (!next) {                                // player iteraction
+        for (uint8_t i = 0; i < 4; i++) {            // polling buttons
+          if (!(PINB & buttons[i] & 0b00001111)) {
+            if (time > 1 || i != lastKey) {          // key validation
+              play(i);
+              next = true;
+              uint8_t correct = simple_random4();
+              if (i != correct) {                    // you loss!
+                for (uint8_t i = 0; i < 3; i++) {
+                  _delay_loop_2(10000);
+                  play(correct, 20000);
+                }
+                _delay_loop_2((uint16_t)0xFFFF);
+                //                FLAGS |= (1 << FLAG0);
+                //                gameloss = true;
+                gameOver();
+                if (lvl > maxLvl) {
+                  saveLevel();
+                  bestScore();
+                }
+                resetNow();
               }
-              time = 0;
-              lastKey = i;
-              break;
+              else {                                 // you win!
+                time = 0;
+                lastKey = i;
+                break;
+              }
             }
             time = 0;
           }
-
         }
 
-        // thinking time 16s (250)
-        // thinking time 4s (62)
-        if (time > 62) {
-          //~          sleepNow();
-          //          gameOver();
-          //          leds((uint8_t)lDn+1);
-          leds(lDn | 1);
-          sleepNow();
+        if (time > 64) {                             // timeout, you loss!
+          //          FLAGS |= (1 << FLAG0);
+          gameOver();
+          resetNow();
         }
       }
     }
+
     _delay_loop_2((uint16_t)0xFFFF);
+    levelUp();
+
+    saveLevel();
+
     if (lvl < pericia) {
       lvl++;
-      //      levelUp(); // animation for completed level
-      leds(lUp | 3);
       _delay_loop_2((uint16_t)45000);
     }
-    else { // special animation for highest allowable pericia level
-      //      levelUp();
-      //      gameOver(); // then turn off
+    else
+    {
       lvl = combo;
     }
   }
 }
+
+
+
+void gameOver() {
+  // game over chase
+  for (uint8_t i = 0; i < 4; i++) play(3 - i, 25000);
+}
+
+void levelUp()
+{
+  for (uint8_t i = 0; i < 4; i++) play(i, 25000);
+}
+
+void bestScore() {
+  // play best score melody
+  for (uint8_t i = 0; i < 3; i++)
+    levelUp();
+}
+
+void saveLevel() {
+  // save max level and seed
+  eeprom_write_byte((uint8_t*) 0, ~lvl);
+  eeprom_write_byte((uint8_t*) 1, (seed));
+}
+
+
+
+
