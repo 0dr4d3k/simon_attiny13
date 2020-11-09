@@ -1,6 +1,6 @@
-#Simon Say Game in ATTiny13 MCU
+# Simon Say Game in ATTiny13 MCU
 
-##Modify the hardware:
+## Modify the hardware:
 <p align="center">
   <img src="assets/hardware_hack.jpg" width="350" title="Tiny13 Simon Hardware Modification">
 </p>
