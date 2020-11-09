@@ -28,9 +28,8 @@
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
 
-#define pericia 32
-#define combo 255
-#define combo2 254
+#define pericia 0x1F // 32 levels
+#define combo   0xFF // combo
 
 #define SET(x,y) x |= (1 << y)
 #define CLEAR(x,y) x &= ~(1<< y)
@@ -39,6 +38,8 @@
 
 #define e0 0x42
 #define e1 0x13
+
+#define BT(t) (uint8_t)((t*1000)/16)
 
 const uint8_t buttons[4] = {
   0b00010001,
@@ -115,15 +116,16 @@ bool easer = false;
   }
 */
 
-#define JAZZ 0x80
-void play(uint8_t i, uint16_t t = 45000) {
+//~void play(uint8_t i, uint16_t t = 45000) {
+void play(uint8_t i, uint8_t t = BT(0.176)) {
   PORTB = 0b00000000;  // set all button pins low or disable pull-up resistors
   //  DDRB = (i&JAZZ)? 0b00010000:buttons[i]; // set speaker and #i button pin as output
   DDRB = buttons[i % 4]; // set speaker and #i button pin as output
   OCR0A = tones[bTones[i]];
   OCR0B = tones[bTones[i]] >> 1;
   TCCR0B = (1 << WGM02) | (1 << CS01); // prescaler /8
-  _delay_loop_2(t);
+//~  _delay_loop_2(t);
+  delay_wdt(t);
   TCCR0B = 0b00000000; // no clock source (Timer0 stopped)
   DDRB = 0b00000000;
   PORTB = 0b00001111;
@@ -190,6 +192,13 @@ ISR(WDT_vect) {
   {
     seed = (seed << 1) ^ TCNT0;
   }
+}
+
+void delay_wdt(uint8_t t) {
+  // 16ms base time. max delay 255 * 16ms = 4,08s
+//  uint8_t l_t = time;
+  time = 0;
+  while (time <= t);
 }
 
 
@@ -275,12 +284,14 @@ int main(void) {
   TCCR0B = (1 << CS00); // Timer0 in normal mode (no prescaler)
 
   // t0(seed generator and notes) and watchdog (basetime)
-  WDTCR =   (1 << WDTIE) | (1 << WDP1); // start watchdog timer with 64ms prescaller (interrupt mode)
+  WDTCR =   (1 << WDTIE) | (0 << WDP0); // start watchdog timer with 16ms prescaller (interrupt mode)
   TIMSK0 = 1 << TOIE0; // enable timer overflow interrupt
 
   sei(); // global interrupt enable
   // repeat for fist 8 WDT interrupts to shuffle the seed
-  _delay_loop_2((uint16_t)0xFFFF);
+//~  _delay_loop_2((uint16_t)0xFFFF);
+  delay_wdt((uint8_t)8); 
+  
 
   // set Timer0 in PWM Pase Correct: WGM02:00 = 0b101
   //                   prescaler /8: CS02:00  = 0b010
@@ -326,8 +337,9 @@ int main(void) {
   // p2p led animation
   if (p2p) {
     //~    _delay_loop_2((uint16_t)45000);
-    //~    ledWin();
-    //~    ledLoss();
+    delay_wdt(BT(0.256));
+    ledWin();
+    ledLoss();
   }
   //  if (READ(FLAGS,FLAG0) == 1u) {ledWin(); ledLoss();}
 
@@ -336,13 +348,15 @@ int main(void) {
     resetCtx();
 
     if (!p2p)
-      //    if (0)
     {
       //    if (!READ(FLAGS,FLAG0))
       for (cnt = 0; cnt <= lvl; cnt++)
       { // play new sequence
         // never ends if lvl == 255
-        _delay_loop_2((uint16_t)45000);
+        //~        _delay_loop_2((uint16_t)45000);
+//        delay_wdt((uint8_t)BT(0.176)-(lvl>>2));
+        delay_wdt((uint8_t)10-((lvl&0x1F)>>2));
+
         //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
         play(simple_random4());
 
@@ -370,10 +384,13 @@ int main(void) {
 
               if (presK != correct)              {   // you loss!
                 for (uint8_t i = 0; i < 3; i++)  {
-                  _delay_loop_2(10000);
-                  play(correct, 20000);
+//~                  _delay_loop_2(10000);
+                  delay_wdt(BT(0.048));
+//~                  play(correct, 20000);
+                  play(correct, BT(0.096));
                 }
                 //~                _delay_loop_2((uint16_t)0xFFFF);
+                delay_wdt(BT(0.256));
                 gameOver();
               }
               else                               {   // you win!
@@ -385,7 +402,7 @@ int main(void) {
             time = 0;
           }
         }
-        if (time > 64)                           {   // timeout, you loss!
+        if (time >= (uint8_t)250 )                           {   // timeout, you loss!
           //          FLAGS |= (1 << FLAG0);
           gameOver();
         }
@@ -393,14 +410,15 @@ int main(void) {
     }
 
     //~    _delay_loop_2((uint16_t)0xFFFF);
+    delay_wdt(BT(0.256));
     ledWin();
 
     if ((s[0] == e0) & (s[1] == e1)) {
-//           lvl = combo;
-//      p2p = false;
+      //           lvl = combo;
+      //      p2p = false;
 //~           for (uint8_t i = 0; i < 8; i++) {
 //~             play(i);
-//~             _delay_loop_2((uint16_t)20000);
+//~                  delay_wdt(BT(0.08));
 //~           }
 
       easer_egg();
@@ -411,10 +429,10 @@ int main(void) {
     else if (lvl < pericia) {
       lvl++;
       //~      _delay_loop_2((uint16_t)45000);
+                  delay_wdt(BT(0.176));
     }
     else
       lvl = combo;
-
 
   }
 }
@@ -431,12 +449,14 @@ void gameOver() {
 
 void ledLoss() {
   // game over chase
-  for (uint8_t i = 0; i < 4; i++) play(3 - i, 25000);
+//~  for (uint8_t i = 0; i < 4; i++) play(3 - i, 25000);
+  for (uint8_t i = 0; i < 4; i++) play(3 - i, BT(0.112));
 }
 
 void ledWin()
 {
-  for (uint8_t i = 0; i < 4; i++) play(i, 25000);
+//~  for (uint8_t i = 0; i < 4; i++) play(i, 25000);
+  for (uint8_t i = 0; i < 4; i++) play(i, BT(0.112));
 }
 
 void ledScore() {
@@ -456,17 +476,23 @@ void easer_egg()
   while (1)
   {
 
-    jazz(45000);
-    _delay_loop_2(47000);
+//`    jazz(45000);
+    jazz(BT(0.176));
+//~    _delay_loop_2(47000);
+        delay_wdt(BT(0.176));
+
 
     if (simple_random4() != 2) {
-      jazz(30000);
+//~      jazz(30000);
+      jazz(BT(0.112));
     }
-    _delay_loop_2(32000);
+//~    _delay_loop_2(32000);
+        delay_wdt(BT(0.112));
+
   }
 }
 
-void jazz(uint16_t t) {
+void jazz(uint8_t t) {
   uint8_t switchval;
   uint8_t note = 0;
 
@@ -483,6 +509,8 @@ void jazz(uint16_t t) {
   play(note % 8, t);
 
 };
+
+
 
 
 
