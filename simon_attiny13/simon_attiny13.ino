@@ -30,19 +30,52 @@
 
 #define pericia 32
 #define combo 255
+#define combo2 254
 
 #define SET(x,y) x |= (1 << y)
 #define CLEAR(x,y) x &= ~(1<< y)
 #define READ(x,y) ((0u == (x & (1<<y)))?0u:1u)
 #define TOGGLE(x,y) (x ^= (1<<y))
 
+#define e0 0x42
+#define e1 0x13
+
 const uint8_t buttons[4] = {
-  0b00010001, 0b00010010, 0b00010100, 0b00011000
+  0b00010001, 
+  0b00010010, 
+  0b00010100, 
+  0b00011000
+//  0b00010110,
+//  0b00010011,
+//  0b00010101,
+//  0b00011010
 };
 
-const uint8_t tones[4] = {
+/*
+  const uint8_t tones[4] = {
   239 / 2, 179 / 2, 143 / 2, 119 / 2
+  };
+*/
+/*
+const uint8_t bTones[4] = {
+  7, 4, 2, 0
 };
+*/
+const uint8_t bTones[8] = {
+  7, 4, 2, 0, 1, 3, 5, 6
+};
+
+const uint8_t tones[8] = {
+  119 / 2, // 0 -> 3
+  133 / 2, // 1
+  141 / 2, // 2 -> 2
+  158 / 2, // 3
+  178 / 2, // 4 -> 1
+  200 / 2, // 5
+  212 / 2, // 6
+  238 / 2  // 7 -> 0
+};
+
 uint8_t lastK;
 //uint8_t presK;
 uint8_t lvl = 0;  // oJo, mirar el reseteo
@@ -82,11 +115,13 @@ bool easer = false;
   }
 */
 
+#define JAZZ 0x80
 void play(uint8_t i, uint16_t t = 45000) {
   PORTB = 0b00000000;  // set all button pins low or disable pull-up resistors
-  DDRB = buttons[i]; // set speaker and #i button pin as output
-  OCR0A = tones[i];
-  OCR0B = tones[i] >> 1;
+//  DDRB = (i&JAZZ)? 0b00010000:buttons[i]; // set speaker and #i button pin as output
+  DDRB = buttons[i%4]; // set speaker and #i button pin as output
+  OCR0A = tones[bTones[i]];
+  OCR0B = tones[bTones[i]] >> 1;
   TCCR0B = (1 << WGM02) | (1 << CS01); // prescaler /8
   _delay_loop_2(t);
   TCCR0B = 0b00000000; // no clock source (Timer0 stopped)
@@ -109,12 +144,9 @@ uint8_t simple_random4() {
 
 
 uint8_t s[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // 32 levels
-
 uint8_t p2p_sequence2(uint8_t i_key) {
-  //  uint8_t p_byte = (cnt >> 2);
-  //  uint8_t p_key  = (cnt % 4) << 1;
-  uint8_t p_byte = (cnt / 4);
-  uint8_t p_key  = (cnt % 4) * 2;
+  uint8_t p_byte = (cnt >> 2);
+  uint8_t p_key  = (cnt % 4) << 1;
   uint8_t d_key, o_key;
 
   if (cnt == lvl) {  // save key
@@ -129,23 +161,6 @@ uint8_t p2p_sequence2(uint8_t i_key) {
   }
   else {
   }
-};
-
-const uint8_t s_easer[2] = {0b01000010, 0b00010011};
-uint8_t p2p_easer(uint8_t i_key) {
-  //  uint8_t p_byte = (cnt >> 2);
-  //  uint8_t p_key  = (cnt % 4) << 1;
-  uint8_t p_byte = (cnt / 4);
-  uint8_t p_key  = (cnt % 4) * 2;
-  uint8_t d_key, o_key;
-
-
-
-  d_key = s_easer[p_byte];
-  o_key = d_key >> p_key;
-  return o_key & 0b00000011;
-
-
 };
 
 
@@ -284,7 +299,14 @@ int main(void) {
       break;
     case 0b00001011:                                  // blue button - p2p game
       p2p = true;
-      easer = true;
+
+      //      FLAGS |= (1 << FLAG0);
+      //      SET(FLAGS, FLAG0);
+
+      //      lvl = combo;
+      break;
+    case 0b00001010:                                  // blue&red button - easer
+      //      easer = true;
 
       //      FLAGS |= (1 << FLAG0);
       //      SET(FLAGS, FLAG0);
@@ -313,11 +335,11 @@ int main(void) {
   }
   //  if (READ(FLAGS,FLAG0) == 1u) {ledWin(); ledLoss();}
 
-
   while (1)                                     {   // main loop
     uint8_t presK;
     resetCtx();
-    if (!p2p)
+//    if (!p2p)
+    if (0)
     {
       //    if (!READ(FLAGS,FLAG0))
       for (cnt = 0; cnt <= lvl; cnt++)  {   // play new sequence
@@ -331,42 +353,7 @@ int main(void) {
     time = 0;
     lastK = 5;
     resetCtx();
-    /*
-        for (cnt = 0; cnt <= 6; cnt++)             {   // player sequence
-          bool next = false;
-          while (!next)                              {   // player iteraction
-            for (presK = 0; presK < 4; presK++)      {   // polling buttons
-              if (!(PINB & buttons[presK] & 0x0F))   {
-                if (time > 1 || presK != lastK)      {   // key validation
-                  play(presK);
-                  next = true;
-                  uint8_t correct;
-                  if (p2p){
-                    correct = p2p_easer(presK);
-                  }
 
-                  if (presK != correct)              {   // you loss!
-                    easer = false;
-
-                  }
-                  else                               {   // you win!
-                    time = 0;
-                    lastK = presK;
-                    break;
-                  }
-                }
-                time = 0;
-              }
-            }
-            if (time > 64)                           {   // timeout, you loss!
-              gameOver();
-            }
-          }
-          if (!easer)
-            break;
-        }
-    */
-    uint8_t lvl = easer ? 6 : lvl;
     for (cnt = 0; cnt <= lvl; cnt++)             {   // player sequence
       bool next = false;
       while (!next)                              {   // player iteraction
@@ -377,31 +364,17 @@ int main(void) {
               next = true;
               uint8_t correct;
               if (p2p)
-              {
-                if (easer)
-                  correct = p2p_easer(presK);
-                else
-                  correct = p2p_sequence2(presK);
-              }
+                correct = p2p_sequence2(presK);
               else
                 correct = simple_random4();
 
               if (presK != correct)              {   // you loss!
-
-                if (easer)
-                {
-                  easer = false;
-                  break;
+                for (uint8_t i = 0; i < 3; i++)  {
+                  _delay_loop_2(10000);
+                  play(correct, 20000);
                 }
-                else
-                {
-                  for (uint8_t i = 0; i < 3; i++)  {
-                    _delay_loop_2(10000);
-                    play(correct, 20000);
-                  }
-//~                  _delay_loop_2((uint16_t)0xFFFF);
-                  gameOver();
-                }
+                _delay_loop_2((uint16_t)0xFFFF);
+                gameOver();
               }
               else                               {   // you win!
                 time = 0;
@@ -414,56 +387,49 @@ int main(void) {
         }
         if (time > 64)                           {   // timeout, you loss!
           //          FLAGS |= (1 << FLAG0);
-          if (easer)
-            easer = false;
-          else
-            gameOver();
+          gameOver();
         }
       }
-
-      if (!easer)
-        break;
     }
 
-
-
-//~    _delay_loop_2((uint16_t)0xFFFF);
+    _delay_loop_2((uint16_t)0xFFFF);
     ledWin();
 
+    if ((s[0] == e0) & (s[1] == e1)) {
+ /*     
+      lvl = combo;
+      //      p2p = false;
+      for (uint8_t i = 0; i < 8; i++) {
+        play(i);
+        _delay_loop_2((uint16_t)20000);
+      }
+*/
 
+  while (1)                                     {   // main loop
+    //    _delay_loop_2((uint16_t)45000);
+    //    play(simple_random4());
+    //    play(simple_random4(), 20000);
 
+    jazz(45000);
+    _delay_loop_2(47000);
 
-    if (lvl < pericia) {
+    if (simple_random4() != 2) {
+//    if (simple_random8() >> 1 != 2) {
+      jazz(30000);
+    }
+    _delay_loop_2(32000);
+  }
+      
+
+    }
+    else if (lvl < pericia) {
       lvl++;
-      //      p2p_up(presK);
       _delay_loop_2((uint16_t)45000);
     }
     else
       lvl = combo;
 
-    if (easer)
-      lvl = combo;
-    
 
-
-    /*
-        resetCtx();
-        //    if (!p2p)
-
-        {
-          //    if (!READ(FLAGS,FLAG0))
-      //      for (cnt = 0; cnt <= lvl; cnt++)  {   // play new sequence
-          for (cnt = 0; cnt < lvl; cnt++)  {   // play new sequence
-            // never ends if lvl == 255
-            _delay_loop_2((uint16_t)45000);
-            //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
-            if (!p2p)
-              play(simple_random4());
-            else
-              play(p2p_sequence2(0));
-          }
-        }
-    */
   }
 }
 
@@ -499,6 +465,23 @@ void saveLevel() {
   eeprom_write_byte((uint8_t*) 1, (seed));
 }
 
+void jazz(uint16_t t) {
+  uint8_t switchval;
+  uint8_t note = 0;
+
+  switchval = simple_random4(); // oJo
+  //switchval = simple_random8() % 5;
+  switch (switchval) {
+    case 0:  note += note;     break;
+    case 1:  note += note + 1; break;
+    case 2:  note += note - 1; break;
+    case 3:  note += note + 2; break;
+    //    case 4:  note = note - 2; break;
+    default: note = 0;        break;
+  }
+  play(note % 8, t);
+
+};
 
 
 
