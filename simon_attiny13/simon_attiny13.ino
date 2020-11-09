@@ -31,11 +31,6 @@
 #define pericia 0x1F // 32 levels
 #define combo   0xFF // combo
 
-#define SET(x,y) x |= (1 << y)
-#define CLEAR(x,y) x &= ~(1<< y)
-#define READ(x,y) ((0u == (x & (1<<y)))?0u:1u)
-#define TOGGLE(x,y) (x ^= (1<<y))
-
 #define e0 0x42
 #define e1 0x13
 
@@ -67,63 +62,41 @@ const uint8_t tones[8] = {
   238 / 2  // 7 -> 0
 };
 
-uint8_t lastK;
-//uint8_t presK;
-uint8_t lvl = 0;  // oJo, mirar el reseteo
-uint8_t cnt;
+//uint8_t lastK;
+uint8_t lvl = 0;
+//uint8_t cnt;
 uint8_t maxLvl;
 uint16_t ctx;
 uint8_t seed;
 volatile uint8_t time;
-bool p2p = false;
-bool easer = false;
 
 
-#define DUMMY0 _SFR_IO8(0x2E) //#define DWDR _SFR_IO8(0x2E)
-
-// bit accessible
-//#define FLAGS _SFR_IO8(0x1D) //#define EEDR _SFR_IO8(0x1D)
-#define FLAGS EEDR // #define EEDR _SFR_IO8(0x1D)
-//#define FLAGS DWDR
-#define FLAG0 0    // P2P, Player to Player flag
-#define FLAG1 1
-#define FLAG2 2
-#define FLAG3 3
-#define FLAG4 4
-#define FLAG5 5
-#define FLAG6 6
-#define FLAG7 7
-
-
-/*
+/* no used
   void sleepNow() {
-  PORTB = 0b00000000; // disable all pull-up resistors
-  cli(); // disable all interrupts
-  WDTCR = 0; // turn off the Watchdog timer
+  PORTB = 0b00000000;                            // disable all pull-up resistors
+  cli();                                         // disable all interrupts
+  WDTCR = 0;                                     // turn off the Watchdog timer
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   sleep_enable();
   sleep_cpu();
   }
 */
 
-void play(uint8_t i, uint8_t t = BT(0.176)) {
-  PORTB = 0b00000000;  // set all button pins low or disable pull-up resistors
-  DDRB = buttons[i % 4]; // set speaker and #i button pin as output
+void play(uint8_t i, uint8_t t = BT(0.176))   {  // play tones
+  PORTB = 0b00000000;                            // disable pull-up
+  DDRB = buttons[i % 4];                         // set speaker and #i button pin as output
   OCR0A = tones[bTones[i]];
   OCR0B = tones[bTones[i]] >> 1;
-  TCCR0B = (1 << WGM02) | (1 << CS01); // prescaler /8
+  TCCR0B = (1 << WGM02) | (1 << CS01);           // prescaler /8
   delay_wdt(t);
-  TCCR0B = 0b00000000; // no clock source (Timer0 stopped)
+  TCCR0B = 0b00000000;                           // no clock source (Timer0 stopped)
   DDRB = 0b00000000;
   PORTB = 0b00001111;
 }
 
 
-uint8_t simple_random4() {
-  // use Linear-feedback shift register instead of Linear congruential generator
-  // https://en.wikipedia.org/wiki/Linear_feedback_shift_register
-  for (uint8_t i = 0; i < 2; i++)
-  {
+uint8_t simple_random4()                      {  // linear-feedback shift register
+  for (uint8_t i = 0; i < 2; i++)             {
     uint8_t lsb = ctx & 1;
     ctx >>= 1;
     if (lsb || !ctx) ctx ^= 0b1011010000000000;
@@ -132,79 +105,60 @@ uint8_t simple_random4() {
 }
 
 
-uint8_t s[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // 32 levels
-uint8_t p2p_sequence2(uint8_t i_key) {
-  uint8_t p_byte = (cnt >> 2);
-  uint8_t p_key  = (cnt % 4) << 1;
+uint8_t s[8] = {0, 0, 0, 0, 0, 0, 0, 0};          // 32 levels
+uint8_t p2p_sequence(uint8_t i_key, uint8_t c) {  // player vs player
+  uint8_t p_byte = (c >> 2);
+  uint8_t p_key  = (c % 4) << 1;
   uint8_t d_key, o_key;
 
-  if (cnt == lvl) {  // save key
+  if (c == lvl)                                {  // save key
     d_key = (i_key & 0b00000011) << p_key;
     s[p_byte] |= d_key;
     return i_key;
   }
-  else if (cnt < lvl) {  //get key
+  else if (c < lvl)                            {  // get key
     d_key = s[p_byte];
     o_key = d_key >> p_key;
     return o_key & 0b00000011;
   }
-  else {
-  }
 };
 
 
-uint8_t p2p_sequence() {
-  uint8_t led_s = s[cnt >> 2];
-  led_s >>= (cnt % 4);
-  return led_s & 0b00000011;
-};
-
-
-void p2p_up(uint8_t key) {
-  key <<= (cnt % 4);
-  s[cnt >> 2] = key;
-}
-
-
-ISR(TIM0_OVF_vect) {
+ISR(TIM0_OVF_vect)                             {  // Timer 0 INT - Speaker
   PORTB ^= 1 << PB4;
 }
 
 
-ISR(WDT_vect) {
-  time++; // increase each 16ms
-
-  // random seed generation from T0 (normal mode)
-  if (  TCCR0B & (1 << CS00))
+ISR(WDT_vect)                                  {  // Watchdog INT - BaseTime
+  time++;                                         // increase each 16ms
+  if (  TCCR0B & (1 << CS00))                  {  // seed generator form T0
     seed = (seed << 1) ^ TCNT0;
+  }
 }
 
 
-void delay_wdt(uint8_t t) {
-  // 16ms base time. max delay 255 * 16ms = 4,08s
+void delay_wdt(uint8_t t)                      {  // Delay using 16ms Base Time
   time = 0;
-  while (time <= t);
+  while (time <= t);                              // max delay 255 * 16ms = 4,08s
 }
 
 
-void resetCtx() {
-  // Seed expansion 0 padding
+void resetCtx()                                {  // Seed expansion 0 padding
   ctx = (uint16_t)seed;
 }
 
 
-void resetNow() {
+void resetNow()                                {  // WatchDog Autoreset
   cli();
-  WDTCR =  (1 << WDCE);
+  WDTCR = (1 << WDCE);
   WDTCR = (1 << WDE) | (1 << WDP2) | (1 << WDP1) | (1 << WDP0);
 
-  //  wdt_enable( WDTO_2S );
+  //  wdt_enable( WDTO_4S );
   while (1);
 }
 
-
-static inline void wdt_disable1 (void)
-{
+/* no used
+  static inline void wdt_disable1 (void)         {  // WatchDod Disable - optimized
   uint8_t register temp_reg;
   asm volatile (
     "wdr"                        "\n\t"
@@ -217,11 +171,10 @@ static inline void wdt_disable1 (void)
     [WDCE_WDE]  "n"  ((uint8_t)((1<<WDCE) | (1<<WDE)))
     : "r0"
   );
-}
+  }
+*/
 
-
-static inline void wdt_disable2 (void)
-{
+static inline void wdt_disable2 (void)             {  // WatchDod Disable - optimized
   wdt_reset();
   WDTCR = (1 << WDCE) | (1 << WDE);
   asm volatile (
@@ -232,123 +185,94 @@ static inline void wdt_disable2 (void)
   );
 }
 
-/*
-  uint8_t eeprom_read_byte2 (const uint8_t *p)
-  {
-  uint8_t t = FLAGS;
-  uint8_t b = eeprom_read_byte ((uint8_t *)p);
-  FLAGS = t;
-  return b;
-  }
-
-  void eeprom_write_byte2 (uint8_t *p, uint8_t value)
-  {
-  uint8_t t = FLAGS;
-  eeprom_write_byte ((uint8_t *)p, value);
-  FLAGS = t;
-  }
-*/
-
 
 int main(void) {
-  // watchdog reset
-  MCUSR &= ~(1 << WDRF);
-  wdt_disable2(); // wdt_disable() optimization
+  bool p2p = false;
 
-  // ports
-  PORTB = 0b00001111; // enable pull-up resistors on 4 game buttons
+  { // watchdog timeout reset
+    MCUSR &= ~(1 << WDRF);
+    wdt_disable2(); // wdt_disable()
+  }
 
-  // flags
-  FLAGS = 0b00000000;
+  PORTB = 0b00001111;                               // Enable pull-up in buttons
 
-  TCCR0B = (1 << CS00); // Timer0 in normal mode (no prescaler)
+  { // Seed Shuffle
+    TCCR0B = (1 << CS00);                           // timer0 in normal mode
+    WDTCR  = (1 << WDTIE);                          // start base time 16ms
+    sei();                                          // global interrupt enable
+    delay_wdt((uint8_t)8);                          // repeat for fist 8 WDT
+  }
 
-  // t0(seed generator and notes) and watchdog (basetime)
-  WDTCR =   (1 << WDTIE) | (0 << WDP0); // start watchdog timer with 16ms prescaller (interrupt mode)
-  TIMSK0 = 1 << TOIE0; // enable timer overflow interrupt
-
-  sei(); // global interrupt enable
-  // repeat for fist 8 WDT interrupts to shuffle the seed
-  delay_wdt((uint8_t)8);
-
-
-  // set Timer0 in PWM Pase Correct: WGM02:00 = 0b101
+  // set Timer0 in PWM Pase Correct: WGM02:00 = 0b001
   //                   prescaler /8: CS02:00  = 0b010
   //       pin B output disconneted: COM0B1:0 = 0b00
-  TCCR0B = (0 << WGM02) | (1 << CS01);
-  TCCR0A = (0 << COM0B1) | (0 << COM0B0) | (0 << WGM01)  | (1 << WGM00);
+  { // Timer 0 - Tones
+    TCCR0B = (1 << CS01);                           // PWM Phase Correct 1/8
+    TCCR0A = (1 << WGM00);                          // pin disconnected
+    TIMSK0 = (1 << TOIE0);                          // timer overflow interrupt
+  }
 
-  // read best score and seed from eeprom
-  maxLvl  = ~eeprom_read_byte((uint8_t*) 0);
+  maxLvl  = ~eeprom_read_byte((uint8_t*) 0);        // Best Score
 
-  // secret codes
-  switch (PINB & 0b00001111) {
-    case 0b00000111:                                  // yellow button - reset score
+  switch (PINB & 0b00001111)                     {  // Secret Codes
+    case 0b00000111:                                // yellow button ---- reset score
       eeprom_write_byte((uint8_t*) 0, 255);
       maxLvl = 0;
       break;
-    case 0b00001011:                                  // blue button - p2p game
+    case 0b00001011:                                // blue button ------ p2p game
       p2p = true;
-      //      FLAGS |= (1 << FLAG0);
-      //      SET(FLAGS, FLAG0);
       break;
-    case 0b00001010:                                  // blue&red button - easer
-      //      easer = true;
-
-      //      FLAGS |= (1 << FLAG0);
-      //      SET(FLAGS, FLAG0);
-
-      //      lvl = combo;
+    case 0b00001010:                                // blue&red button -- future
       break;
-    case 0b00001101:                                  // green button - extra coin
+    case 0b00001101:                                // green button ----- extra coin
       lvl = maxLvl;
-    case 0b00001110:                                  // red button - repeat
+    case 0b00001110:                                // red button ------- repeat
       seed = (((uint8_t) eeprom_read_byte((uint8_t*) 1)));
       break;
   }
 
-  // wait to button release
-  while ((PINB & 0b00001111) != 0b00001111) {};
+  while ((PINB & 0b00001111) != 0b00001111) {};     // Wait to button release
 
-  // p2p led animation
-  if (p2p) {
+
+  if (p2p)                                      {   // P2P led animation
     delay_wdt(BT(0.256));
     ledWin();
     ledLoss();
   }
-  //  if (READ(FLAGS,FLAG0) == 1u) {ledWin(); ledLoss();}
 
-  while (1)                                     {   // main loop
+  while (1)                                     {   // Main loop
     uint8_t presK;
+    uint8_t lastK;
+    uint8_t cnt;
     resetCtx();
 
     if (!p2p)                                   {
-      //    if (!READ(FLAGS,FLAG0))
+      uint8_t d = 14 - ((lvl & 0x1F) >> 2);
       for (cnt = 0; cnt <= lvl; cnt++)          { // play new sequence
         // never ends if lvl == 255
-        delay_wdt((uint8_t)10 - ((lvl & 0x1F) >> 2));
-        play(simple_random4());
+        delay_wdt(d);
+        play(simple_random4(), d);
       }
     }
 
     time = 0;
     lastK = 5;
     resetCtx();
-    for (cnt = 0; cnt <= lvl; cnt++)             {   // player sequence
+    for (cnt = 0; cnt <= lvl; cnt++)             {  // player sequence
       bool next = false;
-      while (!next)                              {   // player iteraction
-        for (presK = 0; presK < 4; presK++)      {   // polling buttons
+      while (!next)                              {  // player iteraction
+        for (presK = 0; presK < 4; presK++)      {  // polling buttons
           if (!(PINB & buttons[presK] & 0x0F))   {
-            if (time > 1 || presK != lastK)      {   // key validation
+            if (time > 1 || presK != lastK)      {  // key validation
               play(presK);
               next = true;
               uint8_t correct;
               if (p2p)
-                correct = p2p_sequence2(presK);
+                correct = p2p_sequence(presK, cnt);
               else
                 correct = simple_random4();
 
-              if (presK != correct)              {   // you loss!
+              if (presK != correct)              {  // you loss!
                 for (uint8_t i = 0; i < 3; i++)  {
                   delay_wdt(BT(0.048));
                   play(correct, BT(0.096));
@@ -356,7 +280,7 @@ int main(void) {
                 delay_wdt(BT(0.256));
                 gameOver();
               }
-              else                               {   // you win!
+              else                               {  // you win!
                 time = 0;
                 lastK = presK;
                 break;
@@ -365,8 +289,7 @@ int main(void) {
             time = 0;
           }
         }
-        if (time >= (uint8_t)250 )               {   // timeout, you loss!
-          //          FLAGS |= (1 << FLAG0);
+        if (time >= (uint8_t)250 )               {  // timeout, you loss!
           gameOver();
         }
       }
@@ -375,27 +298,26 @@ int main(void) {
     delay_wdt(BT(0.256));
     ledWin();
 
-    if ((s[0] == e0) & (s[1] == e1))             {   // level update - easer
-      //           lvl = combo;
-      //      p2p = false;
-      //~           for (uint8_t i = 0; i < 8; i++) {
-      //~             play(i);
-      //~                  delay_wdt(BT(0.08));
-      //~           }
-
+    if ((s[0] == e0) & (s[1] == e1))             {  // level update - easer
+      delay_wdt(BT(0.256));
+      for (uint8_t i = 0; i < 32; i++)           {
+        play(i%8,BT(0.056));
+        delay_wdt(BT(0.08));
+      }
+      delay_wdt(BT(0.256));
       easer_egg();
     }
-    else if (lvl < pericia)                      {   // level update - increase
+    else if (lvl < pericia)                      {  // level update - increase
       lvl++;
       delay_wdt(BT(0.176));
     }
-    else                                         {   // levelupdate - max level
+    else                                         {  // levelupdate - max level
       lvl = combo;
     }
   }
 }
 
-void gameOver() {
+void gameOver()                                  {  // Game Over sequence
   ledLoss();
   if (lvl > maxLvl) {
     saveLevel();
@@ -405,46 +327,47 @@ void gameOver() {
 }
 
 
-void ledLoss() {
-  // game over chase
-  for (uint8_t i = 0; i < 4; i++) play(3 - i, BT(0.112));
+void ledLoss()                                   {  // Loss chase
+  for (uint8_t i = 0; i < 4; i++)
+    play(3 - i, BT(0.112));
 }
 
-void ledWin()
-{
-  for (uint8_t i = 0; i < 4; i++) play(i, BT(0.112));
+
+void ledWin()                                    {  // Win chase
+  for (uint8_t i = 0; i < 4; i++)
+    play(i, BT(0.112));
 }
 
-void ledScore() {
-  // play best score melody
+
+void ledScore()                                  {  // Best score chase
   for (uint8_t i = 0; i < 3; i++)
     ledWin();
 }
 
-void saveLevel() {
-  // save max level and seed
+
+void saveLevel()                                 {  // Save max level and seed
   eeprom_write_byte((uint8_t*) 0, ~lvl);
   eeprom_write_byte((uint8_t*) 1, (seed));
 }
 
+
 void easer_egg()
 {
-  while (1)
-  {
-    jazz(BT(0.176));
-    delay_wdt(BT(0.176));
+  while (1)                    {  // Lets dance
+    jazz(BT(0.144));
+    delay_wdt(BT(0.144));
     if (simple_random4() != 2) {
-      jazz(BT(0.112));
+      jazz(BT(0.096));
     }
-    delay_wdt(BT(0.112));
+    delay_wdt(BT(0.096));
   }
 }
 
 void jazz(uint8_t t) {
   uint8_t switchval;
   uint8_t note = 0;
-  
-  switchval = simple_random4(); 
+
+  switchval = simple_random4();
   //switchval = simple_random8() % 5;
   switch (switchval) {
     case 0:  note += note;     break;
