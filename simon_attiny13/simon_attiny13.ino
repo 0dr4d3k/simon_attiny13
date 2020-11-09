@@ -52,6 +52,7 @@ uint16_t ctx;
 uint8_t seed;
 volatile uint8_t time;
 bool p2p = false;
+bool easer = false;
 
 
 #define DUMMY0 _SFR_IO8(0x2E) //#define DWDR _SFR_IO8(0x2E)
@@ -108,6 +109,7 @@ uint8_t simple_random4() {
 
 
 uint8_t s[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // 32 levels
+
 uint8_t p2p_sequence2(uint8_t i_key) {
   //  uint8_t p_byte = (cnt >> 2);
   //  uint8_t p_key  = (cnt % 4) << 1;
@@ -124,13 +126,26 @@ uint8_t p2p_sequence2(uint8_t i_key) {
     d_key = s[p_byte];
     o_key = d_key >> p_key;
     return o_key & 0b00000011;
-
-    //    s_key = s[s_byte];
-    //    s_key >> (cnt % 4);
-    //    return led_s & 0b00000011;
   }
   else {
   }
+};
+
+const uint8_t s_easer[2] = {0b01000010, 0b00010011};
+uint8_t p2p_easer(uint8_t i_key) {
+  //  uint8_t p_byte = (cnt >> 2);
+  //  uint8_t p_key  = (cnt % 4) << 1;
+  uint8_t p_byte = (cnt / 4);
+  uint8_t p_key  = (cnt % 4) * 2;
+  uint8_t d_key, o_key;
+
+
+
+  d_key = s_easer[p_byte];
+  o_key = d_key >> p_key;
+  return o_key & 0b00000011;
+
+
 };
 
 
@@ -269,6 +284,7 @@ int main(void) {
       break;
     case 0b00001011:                                  // blue button - p2p game
       p2p = true;
+      easer = true;
 
       //      FLAGS |= (1 << FLAG0);
       //      SET(FLAGS, FLAG0);
@@ -297,6 +313,7 @@ int main(void) {
   }
   //  if (READ(FLAGS,FLAG0) == 1u) {ledWin(); ledLoss();}
 
+
   while (1)                                     {   // main loop
     uint8_t presK;
     resetCtx();
@@ -307,14 +324,49 @@ int main(void) {
         // never ends if lvl == 255
         _delay_loop_2((uint16_t)45000);
         //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
-          play(simple_random4());
+        play(simple_random4());
       }
     }
-    
+
     time = 0;
     lastK = 5;
     resetCtx();
+    /*
+        for (cnt = 0; cnt <= 6; cnt++)             {   // player sequence
+          bool next = false;
+          while (!next)                              {   // player iteraction
+            for (presK = 0; presK < 4; presK++)      {   // polling buttons
+              if (!(PINB & buttons[presK] & 0x0F))   {
+                if (time > 1 || presK != lastK)      {   // key validation
+                  play(presK);
+                  next = true;
+                  uint8_t correct;
+                  if (p2p){
+                    correct = p2p_easer(presK);
+                  }
 
+                  if (presK != correct)              {   // you loss!
+                    easer = false;
+
+                  }
+                  else                               {   // you win!
+                    time = 0;
+                    lastK = presK;
+                    break;
+                  }
+                }
+                time = 0;
+              }
+            }
+            if (time > 64)                           {   // timeout, you loss!
+              gameOver();
+            }
+          }
+          if (!easer)
+            break;
+        }
+    */
+    uint8_t lvl = easer ? 6 : lvl;
     for (cnt = 0; cnt <= lvl; cnt++)             {   // player sequence
       bool next = false;
       while (!next)                              {   // player iteraction
@@ -325,17 +377,31 @@ int main(void) {
               next = true;
               uint8_t correct;
               if (p2p)
-                correct = p2p_sequence2(presK);
+              {
+                if (easer)
+                  correct = p2p_easer(presK);
+                else
+                  correct = p2p_sequence2(presK);
+              }
               else
                 correct = simple_random4();
 
               if (presK != correct)              {   // you loss!
-                for (uint8_t i = 0; i < 3; i++)  {
-                  _delay_loop_2(10000);
-                  play(correct, 20000);
+
+                if (easer)
+                {
+                  easer = false;
+                  break;
                 }
-                _delay_loop_2((uint16_t)0xFFFF);
-                gameOver();
+                else
+                {
+                  for (uint8_t i = 0; i < 3; i++)  {
+                    _delay_loop_2(10000);
+                    play(correct, 20000);
+                  }
+//~                  _delay_loop_2((uint16_t)0xFFFF);
+                  gameOver();
+                }
               }
               else                               {   // you win!
                 time = 0;
@@ -348,18 +414,24 @@ int main(void) {
         }
         if (time > 64)                           {   // timeout, you loss!
           //          FLAGS |= (1 << FLAG0);
-          gameOver();
+          if (easer)
+            easer = false;
+          else
+            gameOver();
         }
       }
+
+      if (!easer)
+        break;
     }
 
 
 
-    _delay_loop_2((uint16_t)0xFFFF);
+//~    _delay_loop_2((uint16_t)0xFFFF);
     ledWin();
 
 
-    
+
 
     if (lvl < pericia) {
       lvl++;
@@ -369,25 +441,29 @@ int main(void) {
     else
       lvl = combo;
 
-
-/*
-    resetCtx();
-    //    if (!p2p)
+    if (easer)
+      lvl = combo;
     
-    {
-      //    if (!READ(FLAGS,FLAG0))
-//      for (cnt = 0; cnt <= lvl; cnt++)  {   // play new sequence
-      for (cnt = 0; cnt < lvl; cnt++)  {   // play new sequence
-        // never ends if lvl == 255
-        _delay_loop_2((uint16_t)45000);
-        //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
-        if (!p2p)
-          play(simple_random4());
-        else
-          play(p2p_sequence2(0));
-      }
-    }
-  */   
+
+
+    /*
+        resetCtx();
+        //    if (!p2p)
+
+        {
+          //    if (!READ(FLAGS,FLAG0))
+      //      for (cnt = 0; cnt <= lvl; cnt++)  {   // play new sequence
+          for (cnt = 0; cnt < lvl; cnt++)  {   // play new sequence
+            // never ends if lvl == 255
+            _delay_loop_2((uint16_t)45000);
+            //~        _delay_loop_2(4400 + 489088 / (8 + lvl));
+            if (!p2p)
+              play(simple_random4());
+            else
+              play(p2p_sequence2(0));
+          }
+        }
+    */
   }
 }
 
