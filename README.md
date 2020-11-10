@@ -94,8 +94,8 @@ In this table we can see the different Forward Voltage (directly measured from t
 |Yellow   |1,880                | 98              | 240            |
 
 ## Electrical considerations
-- Optionally you can activate BOD 2,7V in the compiler settings to avoid failures in the blue led activation under low battery status.
-- Also, this activation avoids full discharge in ion lithium LIR2032 rechargeable battery.
+- We used WDT consequently BOD must be disabled in the compiler settings .
+- Avoid full discharge in ion-lithium LIR2032 rechargeable battery.
 
 - ATTiny13a ports pins source and sinking current are the same and limited to 5mA (10mA in PB0-PB1). This allows activate the buzzer in positive logic (PB3 pin) and avoid to use a decoupling capacitor. 
 
@@ -141,7 +141,7 @@ Arduino core for attiny13 - https://mcudude.github.io/MicroCore/package_MCUdude_
 Configuration:
   Tools options:
   Board: "Attiny13"
-  B.O.D: "2.7v"
+  B.O.D: "disabled"
   Clock: "1.2 MHz internal osc."
   GCC Flags: "-Os LTO enabled (default)"
 
