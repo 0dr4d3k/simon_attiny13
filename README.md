@@ -17,9 +17,10 @@ The aim of this project is to create a simple but still playable toy which can b
 - Secret mode: two players mode - original emulation
 - Loss, Win, Best Score, Final and Easer Egg LED animations
 - Easer Egg - Random Jazz Machine (to dance with your friends)
-- Easer Egg = Cycle warning light (stay safety :-)
+- Easer Egg = Cycle advise light (stay safety :-)
 - Power ON forgot alarm
 - Low power consuption. Up to 5,5h with a 210mAh CR2032 battery
+- Hightly optimised for attiny13a MCU
 
 ## Details
 The heart of the game is ATtiny13. It is low power AVR 8-bit microcontroller with 1 kB flash memory, 64 bytes EEPROM and 64 bytes SRAM.
@@ -60,15 +61,19 @@ When you release the button the secret mode is activated until new Power OFF or 
  
 ## Easer Egg:
  The Easer Egg is activated when you insert a specific sequence in the two players mode... 
- You can use this Easer Egg for a crazy party... or maybe you can use this Easer Egg as warning bicycle light (if you forger your one).
- 
+ You can use this Easer Egg for a crazy party... or maybe you can use this Easer Egg as warning or advise bicycle light (if you forger your one).
+
+## Video
+[![Watch the video](https://player.vimeo.com/video/477245412)](https://player.vimeo.com/video/477245412)
+
 ## Modify the hardware:
+### Adding the Buzzer  
 It is very simple modify the original hardware:
-1. Blend the HARD labeled terminal in the original difficult switch. Ensure that he blended terminal do not touch the ground pad in the pcb!!
+1. Blend the HARD labeled terminal in the original difficult switch, SW2. Ensure that he blended terminal do not touch the ground pad in the pcb!!
 2. Weld the ground speaker terminal to the battery ground in the pcb.
 3. Weld the positive speaker termial to the blended switch terminal.
 
-There is a picture showing the modifications:
+This is a picture showing the modifications:
 <p align="center">
   <img src="assets/hardware_hack.jpg" width="350" title="Tiny13 Simon Hardware Modification">
 </p>
@@ -79,100 +84,76 @@ You can buy this inexpensive speaker [here][Buzzer Aliexpress]
 Because each LED has different efficiency, resistors of different values must be connected in series with them. 
 This is a optional modification that could be usefull to learn about [Resistors Color Code]
 
-| Left-Aligned  | Center Aligned  | Right Aligned |
-| :------------ |:---------------:| -----:|
-| col 3 is      | some wordy text | $1600 |
-| col 2 is      | centered        |   $12 |
-| zebra stripes | are neat        |    $1 |
+In this table we can see the different Forward Voltage (directly messured from the supplied diodes), the efficacy upon color [Led Efficacy] and the calculated resistor: 
 
-ODR
+|Led-Color| Forward Voltage (V) | Efficacy  (lm/W)| Resistor (ohm) |
+|--------:|:-------------------:|:---------------:|---------------:|
+|Blue     |2,585                | 37              | 100            |
+|Red      |1,815                | 72              | 330            |
+|Green    |1,875                | 93              | 380            |
+|Yellow   |1,880                | 98              | 240            |
 
+## Electrical considerations
+- Optionally you can activate BOD 2,7V in the compiler settings to avoid failures in the blue led activation under low battery status.
+- Also this activation avoid full discharge in ione lithium LIR2032 rechargable battery.
 
-### Adding the Buzzer 
-The high-impedance (42 ohm) buzzer is connected in series with a capacitor (to eliminate DC voltage) to the output of internal 8-bit timer/counter. Like in an original game, each color is producing a particular tone when it is pressed or activated by the microcontroller and the frequencies are in an exact ratio 3:4:5:6 (50% duty cycle). 
+- ATTiny13a ports pins source and shinking current are the same and limited to 5mA (10mA in PB0-PB1). This allows activate the buzzer in positive logic (PB3 pin) and avoit to use a decoupling capacitor. 
 
+## Consuption
+Loggin consution in a real device yields a 9,8mA/0,2mA maximun/minimun current in normal average mode.
+Integrating in time and assuming 4 beeps (250ms duration) per second (worst case) we obtain the follow table:
+
+|Battery Type        | Energy (mAh) | Total Time (h)  |
+|-------------------:|:------------:|:---------------:|
+|Duracel CR2032      |210           | 5,50            |
+|Chinorris CR2032    |140           | 3,60            |
+|Recargable LIR2032  |40            | 1,04            |
+|Recargable MC2032   |60            | 1,57            |
+
+Some simplifications supposed.
+It is strongly recommended to use rechargable power cell to minimize the use of hazardous sustances!!!
+
+## Know Issues
+- Buzzer in a no dedicated timer pin (PB0, PB1) generates extracode
+
+## Future Improvements
+- Redesign PCB to allow buzzer in PB0 or PB1 pin
+- Add LIR2032 charger
 
 ## Software
 ### Main simplifications over original code
 - Delay Base Time
 - Increasing difficult with time
-- Random
+- Random - ADC eliminated (not works as spacted)
 - EEPROM
 - Sleep mode eliminated
-- Minor simplifications, seed.
+- Minor simplifications, seed, variable space
 ### Addons
 - Two Players
 - Jazz Machine
 - Timeout Reset
-### Secret codes
 
+## Compilation and programing
+You must complile the program with avr-gcc v5.4.0 tool provided in Arduino 1.6.9 ide distribution to obtain a 1008 bytes of program storage space.
+Core installation in Arduino IDE from
+Arduino core for attiny13 - https://mcudude.github.io/MicroCore/package_MCUdude_MicroCore_index.json
 
+Configuration:
+  Tools options:
+  Board: "Attiny13"
+  B.O.D: "2.7v"
+  Clock: "1.2 MHz internal osc."
+  GCC Flags: "-Os LTO enabled (default)"
 
-
-## Secret codes
-
-## Video
-[![Watch the video](https://player.vimeo.com/video/477245412)](https://player.vimeo.com/video/477245412)
-
-## Resistor 
-
-## Consuption
-
-## Compiling
+Programmer: "Arduino as ISP"
 
 ## Reference Libraies:
  - [MicroCore]
  - [picoCore]
 
-
 ## License
 This project with exception of the software is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International License][Creative Commons]. The software (source and binary) is licensed under the [MIT License][The MIT License]. 
 
-
-
-
-1. First ordered list item
-2. Another item
-⋅⋅* Unordered sub-list. 
-1. Actual numbers don't matter, just that it's a number
-⋅⋅1. Ordered sub-list
-4. And another item.
-
-⋅⋅⋅You can have properly indented paragraphs within list items. Notice the blank line above, and the leading spaces (at least one, but we'll use three here to also align the raw Markdown).
-
-⋅⋅⋅To have a line break without a paragraph, you will need to use two trailing spaces.⋅⋅
-⋅⋅⋅Note that this line is separate, but within the same paragraph.⋅⋅
-⋅⋅⋅(This is contrary to the typical GFM line break behaviour, where trailing spaces are not required.)
-
-* Unordered list can use asterisks
-- Or minuses
-+ Or pluses
-
-
-
-[I'm an inline-style link](https://www.google.com)
-
-[I'm an inline-style link with title](https://www.google.com "Google's Homepage")
-
-[I'm a reference-style link][Arbitrary case-insensitive reference text]
-
-[I'm a relative reference to a repository file](../blob/master/LICENSE)
-
-[You can use numbers for reference-style link definitions][1]
-
-Or leave it empty and use the [link text itself].
-
-URLs and URLs in angle brackets will automatically get turned into links. 
-http://www.example.com or <http://www.example.com> and sometimes 
-example.com (but not on Github, for example).
-
-Some text to show that the reference links can follow later.
-
-[arbitrary case-insensitive reference text]: https://www.mozilla.org
-[link text itself]: http://www.reddit.com
-
-
- 
  
 [1]: https://www.tindie.com/products/e-radionica/simon-says-diy-learn-to-solder-kit/ "buy on tindie" 
 [2]: https://e-radionica.com/en/simon-says-kit.html "buy on e-radionica"
@@ -187,4 +168,5 @@ Some text to show that the reference links can follow later.
 [Buzzer Aliexpress]: https://es.aliexpress.com/item/4000203106698.html
 [FSR]: https://en.wikipedia.org/wiki/Linear-feedback_shift_register
 [Resistor Color Code]: https://static4.arrow.com/-/media/arrow/images/miscellaneous/h/how-to-read-resistor-color-codes.jpg
+[Led Efficacy]: https://www.electronicshub.org/light-emitting-diode-basics/
 
