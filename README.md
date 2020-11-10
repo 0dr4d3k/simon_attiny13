@@ -22,6 +22,9 @@ The aim of this project is to create a simple but still playable toy which can b
 - Low power consumption. Up to 5,5h with a 210mAh CR2032 battery
 - Highly optimized for attiny13a MCU
 
+## Video
+[![Watch the video](assets/simon_play.jpg)](https://player.vimeo.com/video/477245412)
+
 ## Details
 The heart of the game is ATtiny13. It is low power AVR 8-bit microcontroller with 1 kB flash memory, 64 bytes EEPROM and 64 bytes SRAM.
 
@@ -62,9 +65,6 @@ When you release the button, the secret mode is activated until new Power OFF or
 ## Easer Egg:
  The Easer Egg is activated when you insert a specific sequence in the two players mode... 
  You can use this Easer Egg for a crazy party... or maybe you can use this Easer Egg as warning or advise bicycle light (if you forget your one).
-
-## Video
-[![Watch the video](https://player.vimeo.com/video/477245412)](https://player.vimeo.com/video/477245412)
 
 ## Modify the hardware:
 ### Adding the Buzzer  
