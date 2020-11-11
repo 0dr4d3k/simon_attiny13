@@ -108,7 +108,7 @@ Integrating in time and assuming 4 beeps (250ms duration) per second (worst case
 |Duracel CR2032      |210           | 5,50            |
 |Chinorris CR2032    |140           | 3,60            |
 |Recargable LIR2032  |40            | 1,04            |
-|Recargable MC2032   |60            | 1,57            |
+|Recargable ML2032   |60            | 1,57            |
 
 Some simplifications supposed.
 It is strongly recommended to use rechargeable power cell to minimize the use of hazardous substances!!!
