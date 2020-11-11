@@ -19,7 +19,7 @@ The aim of this project is to create a simple but still playable toy which can b
 - Easer Egg - Random Jazz Machine (to dance with your friends)
 - Easer Egg = Cycle advise light (stay safety :-)
 - Power ON forgot alarm
-- Low power consumption. Up to 5,5h with a 210mAh CR2032 battery
+- Low power consumption. Up to 11h with a 210mAh CR2032 battery
 - Highly optimized for attiny13a MCU
 
 ## Video
@@ -55,6 +55,7 @@ Normal mode: When the game is started switching ON with the ON/OFF switch, rando
 These modes are activated in the boot sequence. There are two ways to activated these modes: 
 - With the power ON/OFF switch: In power OFF, press the required button and turn ON the game. 
 - With the Timeout Watchdog Reset: In Power ON, press and hold the required button for 6 or more seconds.
+
 When you release the button, the secret mode is activated until new Power OFF or Reset sequence.
 
  1. **Green button**, you can continue with the best-scored game. It starts on the highest achieved level.
