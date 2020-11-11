@@ -128,7 +128,7 @@ It is strongly recommended to use rechargeable power cell to minimize the use of
 ### Main simplifications over original code
 - Delay Base Time
 - Increasing difficult with time
-- Random - ADC eliminated (not works as specter)
+- Random - ADC eliminated (do not works as spected)
 - EEPROM
 - Sleep mode eliminated
 - Minor simplifications, seed, variable space
@@ -150,6 +150,8 @@ Tools options:
 - GCC Flags: "-Os LTO enabled (default)"
 
 Programmer: "Arduino as ISP"
+
+Alernatively you can program directily using the hex file provided in the source code.
 
 ## Reference Libraries:
  - [MicroCore]
