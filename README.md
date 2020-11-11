@@ -82,12 +82,12 @@ You can buy this inexpensive speaker [here][Buzzer Aliexpress]
 
 ### Led Resistors
 Because each LED has different efficiency, resistors of different values must be connected in series with them. 
-This is a optional modification that could be useful to learn about [Resistors Color Code]
+This is a optional modification that could be useful to learn about [Resistor Color Code]
 
 In this table we can see the different Forward Voltage (directly measured from the supplied diodes), the efficacy upon color [Led Efficacy] and the calculated resistor: 
 
 |Led-Color| Forward Voltage (V) | Efficacy  (lm/W)| Resistor (ohm) |
-|--------:|:-------------------:|:---------------:|---------------:|
+|--------:|:-------------------:|:---------------:|:--------------:|
 |Blue     |2,585                | 37              | 100            |
 |Red      |1,815                | 72              | 330            |
 |Green    |1,875                | 93              | 380            |
@@ -96,25 +96,28 @@ In this table we can see the different Forward Voltage (directly measured from t
 ## Electrical considerations
 - We used WDT consequently BOD must be disabled in the compiler settings .
 - Avoid full discharge in ion-lithium LIR2032 rechargeable battery.
-
 - ATTiny13a ports pins source and sinking current are the same and limited to 5mA (10mA in PB0-PB1). This allows activate the buzzer in positive logic (PB3 pin) and avoid to use a decoupling capacitor. 
 
 ## Consumption
 Logging consumption in a real device yields a 9,8mA/0,2mA maximum/minimum current in normal average mode.
-Integrating in time and assuming 4 beeps (250ms duration) per second (worst case) we obtain the follow table:
+Integrating in time and assuming 4 beeps (250ms duration) by second (worst case) we obtain the follow table:
 
-|Battery Type        | Energy (mAh) | Total Time (h)  |
-|-------------------:|:------------:|:---------------:|
-|Duracel CR2032      |210           | 5,50            |
-|Chinorris CR2032    |140           | 3,60            |
-|Recargable LIR2032  |40            | 1,04            |
-|Recargable ML2032   |60            | 1,57            |
+|Battery Type        | Energy (mAh) | Total Time(1) (h) | Total Time(2) (h) |
+|-------------------:|:------------:|:-----------------:|:-----------------:|
+|Duracel CR2032      | 210          | 5,50              | 11,0              |
+|Chinorris CR2032    | 140          | 3,60              | 7,20              |
+|Recargable LIR2032  | 40           | 1,04              | 2,08              |
+|Recargable ML2032   | 60           | 1,57              | 3,14              |
+
+(1) Intensive mode (4 beeps/second)
+(2) Normal mode (2 beeps/second)
 
 Some simplifications supposed.
 It is strongly recommended to use rechargeable power cell to minimize the use of hazardous substances!!!
 
 ## Know Issues
 - Buzzer in a no dedicated timer pin (PB0, PB1) generates extra code
+- Blue LED does not light if the battery voltage is less than 2,6V (battery almost completly discharged)
 
 ## Future Improvements
 - Redesign PCB to allow buzzer in PB0 or PB1 pin
@@ -135,15 +138,15 @@ It is strongly recommended to use rechargeable power cell to minimize the use of
 
 ## Compilation and programing
 You must compile the program with avr-gcc v5.4.0 tool provided in Arduino 1.6.9 ide distribution to obtain a 1008 bytes of program storage space.
-Core installation in Arduino IDE from
+
+Core:
 Arduino core for attiny13 - https://mcudude.github.io/MicroCore/package_MCUdude_MicroCore_index.json
 
-Configuration:
-  Tools options:
-  Board: "Attiny13"
-  B.O.D: "disabled"
-  Clock: "1.2 MHz internal osc."
-  GCC Flags: "-Os LTO enabled (default)"
+Tools options:
+- Board: "Attiny13"
+- B.O.D: "disabled"
+- Clock: "1.2 MHz internal osc."
+- GCC Flags: "-Os LTO enabled (default)"
 
 Programmer: "Arduino as ISP"
 
