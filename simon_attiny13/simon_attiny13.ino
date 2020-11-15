@@ -19,9 +19,9 @@
 - Secret mode: restart same sequence
 - Secret mode: clear best score
 - Secret mode: two players mode - original emulation
-- Loss, Win, Best Score, Final and Easer Egg LED animations
-- Easer Egg - Random Jazz Machine (to dance with your friends)
-- Easer Egg = Cycle advise light (stay safety :-)
+- Loss, Win, Best Score, Final and Easter Egg LED animations
+- Easter Egg - Random Jazz Machine (to dance with your friends)
+- Easter Egg = Cycle advise light (stay safety :-)
 - Power ON forgot alarm
 - Low power consuption. Up to 5,5h with a 210mAh CR2032 battery
 
@@ -174,7 +174,7 @@ void saveLevel()                                 {  // Save max level and seed
 }
 
 
-void easer_egg()                                 { // Lets dance
+void easter_egg()                                 { // Lets dance
   while (1) {  
     jazz(BT(0.144));
     delay_wdt(BT(0.144));
@@ -357,14 +357,14 @@ int main(void) {
     delay_wdt(BT(0.256));
     ledWin();
 
-    if ((s[0] == e0) & (s[1] == e1))             {  // level update - easer
+    if ((s[0] == e0) & (s[1] == e1))             {  // level update - easter
       delay_wdt(BT(0.256));
       for (uint8_t i = 0; i < 32; i++)           {
         play(i%8,BT(0.056));
         delay_wdt(BT(0.08));
       }
       delay_wdt(BT(0.256));
-      easer_egg();
+      easter_egg();
     }
     else if (lvl < pericia)                      {  // level update - increase
       lvl++;
