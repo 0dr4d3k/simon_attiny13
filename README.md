@@ -15,9 +15,9 @@ The aim of this project is to create a simple but still playable toy which can b
 - Secret mode: restart same sequence
 - Secret mode: clear best score
 - Secret mode: two players mode - original emulation
-- Loss, Win, Best Score, Final and Easer Egg LED animations
-- Easer Egg - Random Jazz Machine (to dance with your friends)
-- Easer Egg = Cycle advise light (stay safety :-)
+- Loss, Win, Best Score, Final and Easter Egg LED animations
+- Easter Egg - Random Jazz Machine (to dance with your friends)
+- Easter Egg = Cycle advise light (stay safety :-)
 - Power ON forgot alarm
 - Low power consumption. Up to 11h with a 210mAh CR2032 battery
 - Highly optimized for attiny13a MCU
@@ -63,9 +63,9 @@ When you release the button, the secret mode is activated until new Power OFF or
  3. **Yellow button**, the best score is erased and you start a new random game as in the first case.
  4. **Blue button**, by pressing the blue button you will start a player vs player battle mode. After the startup animation player1 must initiated the duel pressing a button and switching to player2 that must repeat the sequence and increase a new level. The loop must be repeated to fail. This mode has been cloned from the original Simon Says.
  
-## Easer Egg:
- The Easer Egg is activated when you insert a specific sequence in the two players mode... 
- You can use this Easer Egg for a crazy party... or maybe you can use this Easer Egg as warning or advise bicycle light (if you forget your one).
+## Easter Egg:
+ The Easter Egg is activated when you insert a specific sequence in the two players mode... 
+ You can use this Easter Egg for a crazy party... or maybe you can use this Easter Egg as warning or advise bicycle light (if you forget your one).
 
 ## Modify the hardware:
 ### Adding the Buzzer  
